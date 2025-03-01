@@ -1,5 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 import { motion } from "framer-motion";
 import { HeroHighlight, Highlight } from "@/components/ui/hero-highlight";
 
