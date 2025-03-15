@@ -4,6 +4,7 @@ import { saveMessage, updateRoomUserCount } from "@/app/actions";
 import { realtimeClient } from "@/lib/supabase";
 import { getRandomAvatar, getRandomColor } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import { Avatar, AvatarFallback } from "./ui/avatar";
 
 type Message = {
   id: string;
@@ -111,11 +112,9 @@ export default function ChatRoom({
           <h2 className="font-semibold mb-4">你的信息</h2>
           <div className="flex items-center space-x-3 mb-6">
             <div className="h-12 w-12 rounded-full overflow-hidden">
-              <img
-                src={avatar}
-                alt={username}
-                className="h-full w-full object-cover"
-              />
+              <Avatar>
+                <AvatarFallback>{username.charAt(0)}</AvatarFallback>
+              </Avatar>
             </div>
             <div>
               <p className="font-medium">{username}</p>

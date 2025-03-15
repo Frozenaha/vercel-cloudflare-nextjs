@@ -5,6 +5,7 @@ import TopicCreator from "@/components/TopicCreator";
 import { Badge } from "@/components/ui/badge";
 import redis from "@/lib/redis";
 import { Star } from "lucide-react";
+import Link from "next/link";
 
 export default async function Home() {
   const existingTopics = await redis.smembers("existing-topics");
@@ -55,7 +56,9 @@ export default async function Home() {
             </div>
             <div className="flex gap-4">
               {existingTopics.map((topic) => (
-                <Badge key={topic}>{topic}</Badge>
+                <Link href={`/scalable/${topic}`} key={topic}>
+                  <Badge>{topic}</Badge>
+                </Link>
               ))}
             </div>
           </div>
