@@ -6,13 +6,8 @@ import React from "react";
 
 export const dynamic = "force-dynamic";
 
-async function TopicChatPage({
-  params,
-}: {
-  params: Promise<{ topic: string }>;
-}) {
-  const { topic } = await params;
-  console.log(topic);
+async function TopicChatPage({ params }: { params: { topic: string } }) {
+  const { topic } = params;
 
   // 检查话题是否存在
   const exists = await redis.sismember("existing-topics", topic);
@@ -21,7 +16,7 @@ async function TopicChatPage({
   }
 
   // 获取最近的消息
-  const recentMessages = await getRecentMessages(topic);
+  const recentMessages = (await getRecentMessages(topic)) || [];
 
   // 获取当前房间人数
   const userCount = await getRoomUserCount(topic);

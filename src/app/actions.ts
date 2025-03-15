@@ -63,7 +63,17 @@ export async function getRecentMessages(topic: string) {
 
   // 获取最近的50条消息
   const messages = await redis.lrange(messagesKey, 0, 49);
-
+  console.log(messages);
+  // [
+  //   {
+  //     id: 'msg-doy7pot',
+  //     text: '2342442',
+  //     userId: 'user-5gw094z',
+  //     username: '用户650',
+  //     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user-5gw094z',
+  //     createdAt: '2025-03-15T10:47:43.285Z'
+  //   }
+  // ]
   // 解析JSON
-  return messages.map((msg) => JSON.parse(msg as string)).reverse();
+  return messages.map((msg) => msg).reverse();
 }
