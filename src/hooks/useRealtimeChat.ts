@@ -34,21 +34,30 @@ export function useRealtimeChat({
   const [userCount, setUserCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const isInitializedRef = useRef(false);
+  const userJoinedRef = useRef(false);
 
-  // 处理用户加入聊天室
+  // 处理用户加入聊天室 - 使用 useCallback 并确保只执行一次
   const handleUserJoin = useCallback(async () => {
+    if (userJoinedRef.current) return;
+
     try {
+      userJoinedRef.current = true;
       const count = await updateRoomUserCount(topic, true);
       setUserCount(Number(count));
     } catch (error) {
       console.error("更新用户数量失败:", error);
+      userJoinedRef.current = false;
     }
   }, [topic]);
 
   // 处理用户离开聊天室
   const handleUserLeave = useCallback(async () => {
+    if (!userJoinedRef.current) return;
+
     try {
       await updateRoomUserCount(topic, false);
+      userJoinedRef.current = false;
     } catch (error) {
       console.error("更新用户数量失败:", error);
     }
@@ -56,7 +65,7 @@ export function useRealtimeChat({
 
   // 发送消息
   const sendMessage = useCallback(
-    async (messageData: Omit<Message, "id" | "createdAt">) => {
+    async (messageData: Omit<Message, "id" | "createdAt">): Promise<void> => {
       if (!channelRef.current) return;
 
       const message: Message = {
@@ -74,14 +83,17 @@ export function useRealtimeChat({
         event: `message:${topic}`,
         payload: message,
       });
-
-      return message;
     },
     [topic]
   );
 
-  // 设置 Supabase Realtime 监听
+  // 设置 Supabase Realtime 监听 - 使用 useEffect 并确保只执行一次
   useEffect(() => {
+    // 防止重复初始化
+    if (!topic || isInitializedRef.current) return;
+
+    isInitializedRef.current = true;
+
     // 避免重复订阅
     if (channelRef.current) {
       channelRef.current.unsubscribe();
@@ -100,7 +112,13 @@ export function useRealtimeChat({
         }
       })
       .on("broadcast", { event: `user_count:${topic}` }, (payload) => {
-        setUserCount(payload.payload.count);
+        if (
+          payload &&
+          payload.payload &&
+          typeof payload.payload.count === "number"
+        ) {
+          setUserCount(payload.payload.count);
+        }
       });
 
     // 保存频道引用
@@ -123,8 +141,9 @@ export function useRealtimeChat({
         channelRef.current = null;
       }
       setIsConnected(false);
+      isInitializedRef.current = false;
     };
-  }, [topic, userId]);
+  }, [topic, userId, handleUserJoin, handleUserLeave]);
 
   return {
     messages,

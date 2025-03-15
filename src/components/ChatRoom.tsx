@@ -2,7 +2,7 @@
 
 import { saveMessage } from "@/app/actions";
 import { getRandomAvatar } from "@/lib/utils";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,12 +26,24 @@ export default function ChatRoom({
   topic: string;
   initialMessages: Message[];
 }) {
+  // 客户端加载标志，用于避免 hydration 不匹配
+  const [isClient, setIsClient] = useState(false);
+  const hasSetClientRef = useRef(false);
+
   // 使用 useState 的延迟初始化函数来确保这些值只在客户端生成
   const [userId] = useState(
     () => `user-${Math.random().toString(36).substring(2, 9)}`
   );
   const [username] = useState(() => `用户${Math.floor(Math.random() * 1000)}`);
   const [avatar] = useState(() => getRandomAvatar(userId));
+
+  // 标记客户端渲染 - 只执行一次
+  useEffect(() => {
+    if (!hasSetClientRef.current) {
+      setIsClient(true);
+      hasSetClientRef.current = true;
+    }
+  }, []);
 
   // 使用自定义 Hook 处理实时通信
   const { messages, userCount, sendMessage, isConnected } = useRealtimeChat({
@@ -43,21 +55,38 @@ export default function ChatRoom({
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const prevMessagesLengthRef = useRef(initialMessages.length);
 
-  // // 滚动到最新消息
-  // const scrollToBottom = useCallback(() => {
-  //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  // }, []);
+  // 滚动到最新消息
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
 
-  // // 监听消息变化，滚动到底部
-  // useEffect(() => {
-  //   scrollToBottom();
-  // }, [messages, scrollToBottom]);
-  console.log(11111);
+  // 监听消息变化，滚动到底部 - 使用 ref 避免无限循环
+  useEffect(() => {
+    // 只有当消息数量增加时才滚动
+    if (messages.length > prevMessagesLengthRef.current) {
+      scrollToBottom();
+      prevMessagesLengthRef.current = messages.length;
+    }
+  }, [messages.length, scrollToBottom]);
+
+  // 聚焦输入框 - 只在连接状态变化时执行
+  const prevConnectedRef = useRef(false);
+  useEffect(() => {
+    if (isConnected && !prevConnectedRef.current && inputRef.current) {
+      inputRef.current.focus();
+      prevConnectedRef.current = true;
+    }
+  }, [isConnected]);
+
   // 处理发送消息
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || isSending) return;
+    if (!newMessage.trim() || isSending || !isConnected) return;
 
     setIsSending(true);
 
@@ -87,8 +116,30 @@ export default function ChatRoom({
     } finally {
       setIsSending(false);
       // 发送后聚焦输入框
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   };
+
+  // 如果不是客户端渲染，显示加载状态
+  if (!isClient) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
+        <div className="bg-muted/40 p-4 shadow-sm border-b">
+          <div className="flex items-center justify-between max-w-7xl mx-auto">
+            <h1 className="text-xl font-bold">{topic} 聊天室</h1>
+            <Badge variant="outline" className="ml-2">
+              加载中...
+            </Badge>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-muted-foreground">正在加载聊天室...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
@@ -189,6 +240,7 @@ export default function ChatRoom({
           <form onSubmit={handleSendMessage} className="p-4 border-t">
             <div className="flex space-x-2">
               <Input
+                ref={inputRef}
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
