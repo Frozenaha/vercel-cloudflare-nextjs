@@ -1,7 +1,6 @@
 "use server";
 
 import redis from "@/lib/redis";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createTopic({ topicName }: { topicName: string }) {
@@ -63,7 +62,6 @@ export async function getRecentMessages(topic: string) {
 
   // 获取最近的50条消息
   const messages = await redis.lrange(messagesKey, 0, 49);
-  console.log(messages);
   // [
   //   {
   //     id: 'msg-doy7pot',
