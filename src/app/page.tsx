@@ -2,6 +2,7 @@
 import { useScroll, useTransform } from "framer-motion";
 import React from "react";
 import { GoogleGeminiEffect } from "@/components/ui/google-gemini-effect";
+import Link from "next/link";
 
 export default function GoogleGeminiEffectDemo() {
   const ref = React.useRef(null);
@@ -21,6 +22,7 @@ export default function GoogleGeminiEffectDemo() {
       className="h-[400vh] bg-black w-full dark:border dark:border-white/[0.1] rounded-md relative pt-40 overflow-clip"
       ref={ref}
     >
+      <Link href="/scalable">Scalable</Link>
       <GoogleGeminiEffect
         pathLengths={[
           pathLengthFirst,
