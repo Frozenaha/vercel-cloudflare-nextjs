@@ -6,8 +6,12 @@ import React from "react";
 
 export const dynamic = "force-dynamic";
 
-async function TopicChatPage({ params }: { params: { topic: string } }) {
-  const { topic } = params;
+async function TopicChatPage({
+  params,
+}: {
+  params: Promise<{ topic: string }>;
+}) {
+  const { topic } = await params;
 
   // 检查话题是否存在
   const exists = await redis.sismember("existing-topics", topic);

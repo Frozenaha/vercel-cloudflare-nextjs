@@ -57,31 +57,54 @@ export default function ChatRoom({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevMessagesLengthRef = useRef(initialMessages.length);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 滚动到最新消息
+  // 滚动到最新消息 - 使用 useCallback 并防止频繁调用
   const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    // 清除之前的定时器
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
     }
+
+    // 设置新的定时器，延迟执行滚动
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+      scrollTimeoutRef.current = null;
+    }, 100);
   }, []);
 
-  // 监听消息变化，滚动到底部 - 使用 ref 避免无限循环
+  // 监听消息变化，滚动到底部 - 使用 useRef 避免无限循环
   useEffect(() => {
     // 只有当消息数量增加时才滚动
-    if (messages.length > prevMessagesLengthRef.current) {
+    if (messages.length > prevMessagesLengthRef.current && isClient) {
       scrollToBottom();
       prevMessagesLengthRef.current = messages.length;
     }
-  }, [messages.length, scrollToBottom]);
+
+    // 清理函数
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [messages.length, scrollToBottom, isClient]);
 
   // 聚焦输入框 - 只在连接状态变化时执行
   const prevConnectedRef = useRef(false);
   useEffect(() => {
-    if (isConnected && !prevConnectedRef.current && inputRef.current) {
+    // 只有在客户端渲染后且连接状态变化时才执行
+    if (
+      isClient &&
+      isConnected &&
+      !prevConnectedRef.current &&
+      inputRef.current
+    ) {
       inputRef.current.focus();
       prevConnectedRef.current = true;
     }
-  }, [isConnected]);
+  }, [isConnected, isClient]);
 
   // 处理发送消息
   const handleSendMessage = async (e: React.FormEvent) => {
