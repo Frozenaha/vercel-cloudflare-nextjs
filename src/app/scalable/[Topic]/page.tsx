@@ -9,8 +9,8 @@ async function page({ params }: { params: Promise<{ topic: string }> }) {
 
   const words: { text: string; value: number }[] = [];
 
-  for (let i = 0; i < initialData.length; i++) {
-    const [text, value] = initialData.slice(i, i + 2);
+  for (let i = 0; i < initialTopic.length; i++) {
+    const [text, value] = initialTopic.slice(i, i + 2);
 
     if (typeof text === "string" && typeof value === "number") {
       words.push({ text, value });

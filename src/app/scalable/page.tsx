@@ -1,13 +1,14 @@
+export const revalidate = 60;
 import { Icons } from "@/components/Icons";
 import MaxWidthWrapper from "@/components/MaxWidthWrapper";
 import TopicCreator from "@/components/TopicCreator";
+import { Badge } from "@/components/ui/badge";
 import redis from "@/lib/redis";
 import { Star } from "lucide-react";
 
 export default async function Home() {
-  console.log(process.env.UPSTASH_REDIS_REST_TOKEN);
-  // const servedRequests = await redis.get("served-requests");
-
+  const existingTopics = await redis.smembers("existing-topics");
+  console.log(existingTopics);
   return (
     <section className="min-h-screen bg-grid-zinc-50">
       <MaxWidthWrapper className="relative pb-24 pt-10 sm:pb-32 lg:pt-24 xl:pt-32 lg:pb-52">
@@ -51,6 +52,11 @@ export default async function Home() {
                   served requests
                 </p>
               </div>
+            </div>
+            <div className="flex gap-4">
+              {existingTopics.map((topic) => (
+                <Badge key={topic}>{topic}</Badge>
+              ))}
             </div>
           </div>
         </div>

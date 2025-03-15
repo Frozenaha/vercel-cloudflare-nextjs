@@ -1,7 +1,8 @@
 "use server";
 
 import redis from "@/lib/redis";
-import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+// import { redirect } from "next/navigation";
 
 export async function createTopic({ topicName }: { topicName: string }) {
   const regex = /^[a-zA-Z-]+$/;
@@ -14,5 +15,6 @@ export async function createTopic({ topicName }: { topicName: string }) {
   }
   await redis.sadd("existing-topics", topicName);
 
-  redirect(`/scalable/${topicName}`);
+  // redirect(`/scalable/${topicName}`);
+  revalidatePath("/scalable");
 }
