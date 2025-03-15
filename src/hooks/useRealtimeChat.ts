@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { realtimeClient } from "@/lib/supabase";
+
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { updateRoomUserCount } from "@/app/actions";
+import { supabase } from "@/lib/supabase";
 
 type Message = {
   id: string;
@@ -101,6 +102,7 @@ export function useRealtimeChat({
     }
 
     setIsConnected(false);
+    const realtimeClient = supabase.channel("chat");
 
     // 创建新的订阅
     const channel = realtimeClient
