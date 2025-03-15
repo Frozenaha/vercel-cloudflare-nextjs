@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { RealtimeChannel } from "@supabase/supabase-js";
-import { updateRoomUserCount } from "@/app/actions";
 import { supabase } from "@/lib/supabase";
 
 type Message = {
@@ -36,33 +35,6 @@ export function useRealtimeChat({
   const [isConnected, setIsConnected] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const isInitializedRef = useRef(false);
-  const userJoinedRef = useRef(false);
-
-  // 处理用户加入聊天室 - 使用 useCallback 并确保只执行一次
-  const handleUserJoin = useCallback(async () => {
-    if (userJoinedRef.current) return;
-
-    try {
-      userJoinedRef.current = true;
-      const count = await updateRoomUserCount(topic, true);
-      setUserCount(Number(count));
-    } catch (error) {
-      console.error("更新用户数量失败:", error);
-      userJoinedRef.current = false;
-    }
-  }, [topic]);
-
-  // 处理用户离开聊天室
-  const handleUserLeave = useCallback(async () => {
-    if (!userJoinedRef.current) return;
-
-    try {
-      await updateRoomUserCount(topic, false);
-      userJoinedRef.current = false;
-    } catch (error) {
-      console.error("更新用户数量失败:", error);
-    }
-  }, [topic]);
 
   // 发送消息
   const sendMessage = useCallback(
@@ -91,7 +63,7 @@ export function useRealtimeChat({
   // 设置 Supabase Realtime 监听 - 使用 useEffect 并确保只执行一次
   useEffect(() => {
     // 防止重复初始化
-    if (!topic || isInitializedRef.current) return;
+    if (!topic || !userId || isInitializedRef.current) return;
 
     isInitializedRef.current = true;
 
@@ -102,10 +74,18 @@ export function useRealtimeChat({
     }
 
     setIsConnected(false);
-    const realtimeClient = supabase.channel("chat");
 
-    // 创建新的订阅
-    const channel = realtimeClient
+    // 创建新的频道，使用 topic 作为频道名称以确保唯一性
+    const channel = supabase.channel(`room:${topic}`, {
+      config: {
+        presence: {
+          key: userId,
+        },
+      },
+    });
+
+    // 设置消息监听
+    channel
       .on("broadcast", { event: `message:${topic}` }, (payload) => {
         const newMsg = payload.payload as Message;
         // 只添加不是自己发送的消息，避免重复
@@ -113,39 +93,51 @@ export function useRealtimeChat({
           setMessages((prev) => [...prev, newMsg]);
         }
       })
-      .on("broadcast", { event: `user_count:${topic}` }, (payload) => {
-        if (
-          payload &&
-          payload.payload &&
-          typeof payload.payload.count === "number"
-        ) {
-          setUserCount(payload.payload.count);
-        }
+      // 使用 Presence 监听在线用户变化
+      .on("presence", { event: "sync" }, () => {
+        // 获取当前在线用户状态
+        const presenceState = channel.presenceState();
+        // 计算在线用户数量
+        const count = Object.keys(presenceState).length;
+        setUserCount(count);
+      })
+      .on("presence", { event: "join" }, ({ key, newPresences }) => {
+        console.log(`用户 ${key} 加入了聊天室`, newPresences);
+      })
+      .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+        console.log(`用户 ${key} 离开了聊天室`, leftPresences);
       });
 
     // 保存频道引用
     channelRef.current = channel;
 
     // 订阅频道
-    channel.subscribe((status: string) => {
+    channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
+        // 设置连接状态
         setIsConnected(true);
-        // 只有在成功订阅后才执行加入操作
-        handleUserJoin();
+
+        // 使用 Presence 跟踪用户在线状态
+        await channel.track({
+          user_id: userId,
+          online_at: new Date().toISOString(),
+        });
       }
     });
 
     // 清理函数
     return () => {
-      handleUserLeave();
       if (channelRef.current) {
+        // 停止跟踪用户在线状态
+        channelRef.current.untrack();
+        // 取消订阅
         channelRef.current.unsubscribe();
         channelRef.current = null;
       }
       setIsConnected(false);
       isInitializedRef.current = false;
     };
-  }, [topic, userId, handleUserJoin, handleUserLeave]);
+  }, [topic, userId]);
 
   return {
     messages,

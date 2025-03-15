@@ -58,6 +58,7 @@ export default function ChatRoom({
   const inputRef = useRef<HTMLInputElement>(null);
   const prevMessagesLengthRef = useRef(initialMessages.length);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 滚动到最新消息 - 使用 useCallback 并防止频繁调用
   const scrollToBottom = useCallback(() => {
@@ -75,10 +76,10 @@ export default function ChatRoom({
     }, 100);
   }, []);
 
-  // 监听消息变化，滚动到底部 - 使用 useRef 避免无限循环
+  // 监听消息变化，滚动到底部 - 使用 length 作为依赖而不是整个数组
   useEffect(() => {
-    // 只有当消息数量增加时才滚动
-    if (messages.length > prevMessagesLengthRef.current && isClient) {
+    // 只有在客户端渲染后且消息数量增加时才滚动
+    if (isClient && messages.length > prevMessagesLengthRef.current) {
       scrollToBottom();
       prevMessagesLengthRef.current = messages.length;
     }
@@ -94,61 +95,86 @@ export default function ChatRoom({
   // 聚焦输入框 - 只在连接状态变化时执行
   const prevConnectedRef = useRef(false);
   useEffect(() => {
-    // 只有在客户端渲染后且连接状态变化时才执行
-    if (
-      isClient &&
-      isConnected &&
-      !prevConnectedRef.current &&
-      inputRef.current
-    ) {
-      inputRef.current.focus();
-      prevConnectedRef.current = true;
+    // 只有在客户端渲染后且连接状态变化为已连接时才执行
+    if (isClient && isConnected && !prevConnectedRef.current) {
+      // 清除之前的定时器
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+
+      // 设置新的定时器，延迟执行聚焦
+      focusTimeoutRef.current = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+        prevConnectedRef.current = true;
+        focusTimeoutRef.current = null;
+      }, 300);
     }
+
+    // 清理函数
+    return () => {
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
+      }
+    };
   }, [isConnected, isClient]);
 
   // 处理发送消息
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || isSending || !isConnected) return;
+  const handleSendMessage = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newMessage.trim() || isSending || !isConnected) return;
 
-    setIsSending(true);
+      setIsSending(true);
 
-    try {
-      // 准备消息数据
-      const messageData = {
-        text: newMessage,
-        userId,
-        username,
-        avatar,
-      };
+      try {
+        // 准备消息数据
+        const messageData = {
+          text: newMessage,
+          userId,
+          username,
+          avatar,
+        };
 
-      // 清空输入框
-      setNewMessage("");
+        // 清空输入框
+        setNewMessage("");
 
-      // 发送消息
-      await sendMessage(messageData);
+        // 发送消息
+        await sendMessage(messageData);
 
-      // 保存消息到 Redis
-      await saveMessage(topic, {
-        id: `msg-${Math.random().toString(36).substring(2, 9)}`,
-        ...messageData,
-        createdAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("发送消息失败:", error);
-    } finally {
-      setIsSending(false);
-      // 发送后聚焦输入框
-      if (inputRef.current) {
-        inputRef.current.focus();
+        // 保存消息到 Redis
+        await saveMessage(topic, {
+          id: `msg-${Math.random().toString(36).substring(2, 9)}`,
+          ...messageData,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("发送消息失败:", error);
+      } finally {
+        setIsSending(false);
+        // 发送后聚焦输入框
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
       }
-    }
-  };
+    },
+    [
+      newMessage,
+      isSending,
+      isConnected,
+      userId,
+      username,
+      avatar,
+      sendMessage,
+      topic,
+    ]
+  );
 
   // 如果不是客户端渲染，显示加载状态
   if (!isClient) {
     return (
-      <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
+      <div className="flex flex-col h-screen bg-background">
         <div className="bg-muted/40 p-4 shadow-sm border-b">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <h1 className="text-xl font-bold">{topic} 聊天室</h1>
@@ -165,7 +191,7 @@ export default function ChatRoom({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-background">
+    <div className="flex flex-col h-screen bg-background">
       <div className="bg-muted/40 p-4 shadow-sm border-b">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <h1 className="text-xl font-bold">{topic} 聊天室</h1>

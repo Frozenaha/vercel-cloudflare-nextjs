@@ -17,61 +17,69 @@ export async function createTopic({ topicName }: { topicName: string }) {
   redirect(`/scalable/${topicName}`);
 }
 
-// 更新房间人数
-export async function updateRoomUserCount(topic: string, increment: boolean) {
-  const roomKey = `room:${topic}:users`;
-
-  if (increment) {
-    // 增加房间人数
-    await redis.incr(roomKey);
-  } else {
-    // 减少房间人数，确保不会小于0
-    const count = (await redis.get(roomKey)) as string;
-    if (count && parseInt(count) > 0) {
-      await redis.decr(roomKey);
-    }
-  }
-
-  // 返回当前房间人数
-  return await redis.get(roomKey);
-}
-
-// 获取房间人数
-export async function getRoomUserCount(topic: string) {
-  const roomKey = `room:${topic}:users`;
-  const count = await redis.get(roomKey);
-  return count ? parseInt(count as string) : 0;
-}
-
 // 保存消息到Redis
-export async function saveMessage(topic: string, message: any) {
-  const messagesKey = `room:${topic}:messages`;
-
-  // 将消息添加到列表
-  await redis.lpush(messagesKey, JSON.stringify(message));
-
-  // 保持列表长度为50
-  await redis.ltrim(messagesKey, 0, 49);
-
-  return message;
+export async function saveMessage(
+  topic: string,
+  message: {
+    id: string;
+    text: string;
+    userId: string;
+    username: string;
+    avatar: string;
+    createdAt: string;
+  }
+) {
+  try {
+    // 将消息保存到 Redis 列表中
+    await redis.lpush(`messages:${topic}`, JSON.stringify(message));
+    // 限制消息历史记录数量，只保留最近的 50 条消息
+    await redis.ltrim(`messages:${topic}`, 0, 49);
+    return { success: true };
+  } catch (error) {
+    console.error("保存消息失败:", error);
+    return { success: false, error };
+  }
 }
 
 // 获取最近的消息
 export async function getRecentMessages(topic: string) {
-  const messagesKey = `room:${topic}:messages`;
+  try {
+    // 获取最近的 50 条消息
+    const messages = await redis.lrange(`messages:${topic}`, 0, 49);
+    // 解析消息并按时间排序
+    return messages
+      .map((msg) => JSON.parse(msg))
+      .sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+  } catch (error) {
+    console.error("获取消息失败:", error);
+    return null;
+  }
+}
 
-  // 获取最近的50条消息
-  const messages = await redis.lrange(messagesKey, 0, 49);
-  // [
-  //   {
-  //     id: 'msg-doy7pot',
-  //     text: '2342442',
-  //     userId: 'user-5gw094z',
-  //     username: '用户650',
-  //     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user-5gw094z',
-  //     createdAt: '2025-03-15T10:47:43.285Z'
-  //   }
-  // ]
-  // 解析JSON
-  return messages.map((msg) => msg).reverse();
+// 获取所有话题
+export async function getAllTopics() {
+  try {
+    const topics = await redis.smembers("existing-topics");
+    return topics;
+  } catch (error) {
+    console.error("获取话题失败:", error);
+    return [];
+  }
+}
+
+// 删除话题
+export async function deleteTopic(topic: string) {
+  try {
+    // 从集合中移除话题
+    await redis.srem("existing-topics", topic);
+    // 删除相关的消息
+    await redis.del(`messages:${topic}`);
+    return { success: true };
+  } catch (error) {
+    console.error("删除话题失败:", error);
+    return { success: false, error };
+  }
 }
