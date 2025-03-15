@@ -22,7 +22,10 @@ export default function GoogleGeminiEffectDemo() {
       className="h-[400vh] bg-black w-full dark:border dark:border-white/[0.1] rounded-md relative pt-40 overflow-clip"
       ref={ref}
     >
-      <Link href="/scalable">Scalable</Link>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm text-white flex gap-4 items-center hh-16 ">
+        <Link href="/">Home</Link>
+        <Link href="/scalable">Scalable</Link>
+      </nav>
       <GoogleGeminiEffect
         pathLengths={[
           pathLengthFirst,

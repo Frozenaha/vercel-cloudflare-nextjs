@@ -1,11 +1,12 @@
 import { Icons } from "@/components/Icons";
 import MaxWidthWrapper from "@/components/MaxWidthWrapper";
-// import TopicCreator from "@/components/TopicCreator";
-// import { redis } from "@/lib/redis";
+import TopicCreator from "@/components/TopicCreator";
+import redis from "@/lib/redis";
 import { Star } from "lucide-react";
 
 export default async function Home() {
-  const servedRequests = await redis.get("served-requests");
+  console.log(process.env.UPSTASH_REDIS_REST_TOKEN);
+  // const servedRequests = await redis.get("served-requests");
 
   return (
     <section className="min-h-screen bg-grid-zinc-50">
@@ -31,7 +32,7 @@ export default async function Home() {
               about...
             </h1>
 
-            {/* <TopicCreator /> */}
+            <TopicCreator />
 
             <div className="mt-12 flex flex-col sm:flex-row items-cemter sm:items-start gap-5">
               <div className="flex flex-col gap-1 justify-between items-center">
@@ -45,7 +46,7 @@ export default async function Home() {
 
                 <p>
                   <span className="font-semibold">
-                    {Math.ceil(Number(servedRequests) / 10) * 10}
+                    {/* {Math.ceil(Number(servedRequests) / 10) * 10} */}
                   </span>{" "}
                   served requests
                 </p>
